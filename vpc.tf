@@ -1,3 +1,4 @@
+#data python 
 data "external" "vpc_name" {
     program = ["python3", "${path.module}/name.py"]
 }
