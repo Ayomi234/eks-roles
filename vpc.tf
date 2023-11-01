@@ -1,6 +1,6 @@
 #data python 
 data "external" "vpc_name" {
-    program = ["python3", "${path.module}/name.py"]
+  program = ["python3", "${path.module}/name.py"]
 }
 
 #1. Create VPC
@@ -23,7 +23,7 @@ resource "aws_internet_gateway" "igw" {
 
 #3. Create EIP
 resource "aws_eip" "nat" {
-  
+
   tags = {
     Name = "nat"
   }
@@ -32,49 +32,49 @@ resource "aws_eip" "nat" {
 #4.Create NAT gateway
 resource "aws_nat_gateway" "nat" {
   allocation_id = aws_eip.nat.id
-  subnet_id = aws_subnet.public[0].id
+  subnet_id     = aws_subnet.public[0].id
 
   tags = {
     Name = "nat"
   }
 
-  depends_on = [ aws_internet_gateway.igw ]
+  depends_on = [aws_internet_gateway.igw]
 }
 
 #5. Create private subnet
 resource "aws_subnet" "private" {
-  count = length(var.private_cidr)
-  vpc_id = aws_vpc.main.id
-  cidr_block = element(var.private_cidr, count.index)
+  count             = length(var.private_cidr)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = element(var.private_cidr, count.index)
   availability_zone = element(var.availability_zones, count.index)
 
   tags = {
-    "Name" = "private"
+    "Name"                            = "private"
     "kubernetes.io/role/internal-elb" = "1"
-    "kubernetes.io/cluster/demo" = "owned"
+    "kubernetes.io/cluster/demo"      = "owned"
   }
 }
 
 #6. Create public subnet
 resource "aws_subnet" "public" {
-  count = length(var.public_cidr)
-  vpc_id = aws_vpc.main.id
-  cidr_block = element(var.public_cidr, count.index)
-  availability_zone = element(var.availability_zones, count.index)
+  count                   = length(var.public_cidr)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = element(var.public_cidr, count.index)
+  availability_zone       = element(var.availability_zones, count.index)
   map_public_ip_on_launch = true
 
   tags = {
-    "Name" = "public"
+    "Name"                            = "public"
     "kubernetes.io/role/internal-elb" = "1"
-    "kubernetes.io/cluster/demo" = "owned"
-}
+    "kubernetes.io/cluster/demo"      = "owned"
+  }
 }
 
 #7. Create private route table 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
-  depends_on = [ aws_subnet.private ]
+  depends_on = [aws_subnet.private]
 
   tags = {
     Name = "private"
@@ -85,7 +85,7 @@ resource "aws_route_table" "private" {
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
-  depends_on = [ aws_subnet.public ]
+  depends_on = [aws_subnet.public]
 
   tags = {
     Name = "public"
@@ -94,23 +94,23 @@ resource "aws_route_table" "public" {
 
 #9. Create public route 
 resource "aws_route" "public_internet_gateway" {
-  
-  route_table_id = aws_route_table.public.id
-  destination_cidr_block = "0.0.0.0/0"
-  gateway_id = aws_internet_gateway.igw.id
 
-  depends_on = [ aws_route_table.public ]
-  
+  route_table_id         = aws_route_table.public.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.igw.id
+
+  depends_on = [aws_route_table.public]
+
 }
 
 #10. private routes 
 resource "aws_route" "private_nat_gateway" {
-  
-  route_table_id = aws_route_table.private.id
-  nat_gateway_id = aws_nat_gateway.nat.id
+
+  route_table_id         = aws_route_table.private.id
+  nat_gateway_id         = aws_nat_gateway.nat.id
   destination_cidr_block = "0.0.0.0/0"
 
-  depends_on = [ aws_route_table.private ]
+  depends_on = [aws_route_table.private]
 
 }
 
@@ -118,20 +118,20 @@ resource "aws_route" "private_nat_gateway" {
 resource "aws_route_table_association" "private" {
   count = length(var.private_cidr)
 
-  subnet_id = element(aws_subnet.private[*].id, count.index)
+  subnet_id      = element(aws_subnet.private[*].id, count.index)
   route_table_id = aws_route_table.private.id
 
-  depends_on = [ aws_route.private_nat_gateway, aws_subnet.private ]
+  depends_on = [aws_route.private_nat_gateway, aws_subnet.private]
 }
 
 #12. Public route association 
 resource "aws_route_table_association" "public" {
   count = length(var.public_cidr)
 
-  subnet_id = element(aws_subnet.public[*].id, count.index)
+  subnet_id      = element(aws_subnet.public[*].id, count.index)
   route_table_id = aws_route_table.public.id
 
-  depends_on = [ aws_route.public_internet_gateway, aws_subnet.public ]
-  
+  depends_on = [aws_route.public_internet_gateway, aws_subnet.public]
+
 }
   
